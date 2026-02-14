@@ -3,6 +3,8 @@
 #![allow(dead_code)]
 
 use itertools::Itertools;
+use wks::alias_boundary_left;
+use wks::boundary_left_to_right;
 use wks::prelude::*;
 
 fn main() -> Result<()> {
@@ -14,28 +16,8 @@ fn main() -> Result<()> {
         .next()
         .and_then(|arg| arg.parse().ok())
         .unwrap();
-    let surrounding_left = match &surrounding_left[..] {
-        "b" => "(",
-        "B" => "{",
-        "t" => "<",
-        "s" => "[",
-        "p" => "|",
-        "`" => "```",
-        "\"" => r#"""""#,
-        "'" => "'''",
-        "backtick" => "```",
-        "doublequote" => r#"""""#,
-        "singlequote" => "'''",
-        other => other,
-    };
-    let surrounding_right = match surrounding_left {
-        "(" => ")",
-        "{" => "}",
-        "<" => ">",
-        "[" => "]",
-        "begin" => "end",
-        other => other,
-    };
+    let surrounding_left = alias_boundary_left(&surrounding_left);
+    let surrounding_right = boundary_left_to_right(surrounding_left);
     let no_indent_innards = [r#"""""#, "```", "'''"];
     let indent_innards = no_indent_innards
         .contains(&surrounding_left)
