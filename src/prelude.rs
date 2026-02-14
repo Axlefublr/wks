@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+pub use super::CharExt;
 pub use anyhow::Context;
 pub use anyhow::Result;
 pub use anyhow::bail;
