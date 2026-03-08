@@ -34,7 +34,9 @@ impl FromStr for Alternative {
 
 fn main() -> Result<()> {
     let tuna = Tuna::parse();
-    eprintln!("{}", tuna.question);
+    if tuna.question.is_empty().not() {
+        eprintln!("{}", tuna.question);
+    }
     let mut valid_shortcuts = HashSet::new();
     let alternatives = tuna
         .alternatives
@@ -55,9 +57,9 @@ fn main() -> Result<()> {
         let taken_char = term.read_char().unwrap();
         if valid_shortcuts.contains(&taken_char) {
             println!("{}", taken_char);
+            eprintln!();
             break;
         }
     }
-    eprintln!();
     Ok(())
 }
