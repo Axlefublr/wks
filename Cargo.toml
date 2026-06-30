@@ -15,6 +15,7 @@ clap = { version = "4.5.57", features = ["derive", "wrap_help"] }
 console = "0.16.2"
 dirs = "6.0.0"
 duct = "1.1.1"
+ignore = "0.4.26"
 itertools = "0.14.0"
 rand = "0.10.0"
 serde = { version = "1.0.228", features = ["derive"] }
