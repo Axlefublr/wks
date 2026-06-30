@@ -2,9 +2,8 @@
 #![allow(dead_code)]
 
 use ignore::DirEntry;
-use wks::prelude::*;
-
 use ignore::WalkBuilder;
+use wks::prelude::*;
 
 fn main() -> Result<()> {
     let cwd = env::args()
@@ -15,13 +14,37 @@ fn main() -> Result<()> {
         })
         .canonicalize()
         .expect("canonicalize resulting path");
-    walk(&cwd, &cwd);
+    let mut queue = VecDeque::new();
+    queue.push_back(cwd.clone());
+
+    while let Some(dir) = queue.pop_front() {
+        let mut entries = entries(&dir);
+        entries.sort_by_key(|the| the.file_type().unwrap().is_dir());
+
+        let dirs = entries
+            .into_iter()
+            .filter(|entry| {
+                let is_dir = entry.file_type().unwrap().is_dir();
+                let path = entry.path();
+                let the = path
+                    .strip_prefix(cwd.clone())
+                    .unwrap()
+                    .display();
+                println!("{}{}", the, if is_dir { "/" } else { "" });
+                is_dir
+            })
+            .map(|entry| entry.into_path())
+            .collect::<Vec<_>>();
+
+        for entry in dirs {
+            queue.push_back(entry);
+        }
+    }
     Ok(())
 }
 
 fn entries(cwd: &Path) -> Vec<DirEntry> {
-    let mut walk_builder = WalkBuilder::new(cwd);
-    walk_builder
+    WalkBuilder::new(cwd)
         .hidden(false)
         .parents(true)
         .follow_links(true)
@@ -36,25 +59,4 @@ fn entries(cwd: &Path) -> Vec<DirEntry> {
         .filter_map(Result::ok)
         .filter(|the| the.path() != cwd)
         .collect::<Vec<_>>()
-}
-
-fn walk(root_cwd: &Path, cwd: &Path) {
-    let mut entries = entries(cwd);
-    entries.sort_by_key(|the| the.file_type().unwrap().is_dir());
-    let directories = entries
-        .into_iter()
-        .filter(|entry| {
-            let is_dir = entry.file_type().unwrap().is_dir();
-            let path = entry.path();
-            let the = path
-                .strip_prefix(root_cwd)
-                .unwrap()
-                .display();
-            println!("{}{}", the, if is_dir { "/" } else { "" });
-            is_dir
-        })
-        .collect::<Vec<_>>();
-    for entry in directories {
-        walk(root_cwd, entry.path())
-    }
 }

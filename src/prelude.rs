@@ -8,6 +8,7 @@ pub use clap::Parser;
 pub use std::borrow::Cow;
 pub use std::collections::HashMap;
 pub use std::collections::HashSet;
+pub use std::collections::VecDeque;
 pub use std::env;
 pub use std::fmt;
 pub use std::fs;
