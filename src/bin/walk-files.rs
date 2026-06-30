@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use ignore::DirEntry;
 use wks::prelude::*;
 
 use ignore::WalkBuilder;
@@ -14,8 +15,13 @@ fn main() -> Result<()> {
         })
         .canonicalize()
         .expect("canonicalize resulting path");
-    let mut walk_builder = WalkBuilder::new(&cwd);
-    let mut entries = walk_builder
+    walk(&cwd, &cwd);
+    Ok(())
+}
+
+fn entries(cwd: &Path) -> Vec<DirEntry> {
+    let mut walk_builder = WalkBuilder::new(cwd);
+    walk_builder
         .hidden(false)
         .parents(true)
         .follow_links(true)
@@ -24,21 +30,31 @@ fn main() -> Result<()> {
         .git_exclude(true)
         .add_custom_ignore_filename(".helix/ignore")
         .ignore(true)
+        .max_depth(Some(1))
         .sort_by_file_name(|name1, name2| name1.cmp(name2))
         .build()
         .filter_map(Result::ok)
         .filter(|the| the.path() != cwd)
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
+
+fn walk(root_cwd: &Path, cwd: &Path) {
+    let mut entries = entries(cwd);
     entries.sort_by_key(|the| the.file_type().unwrap().is_dir());
-    entries.sort_by_key(|the| the.depth());
-    for entry in entries {
-        let is_dir = entry.file_type().unwrap().is_dir();
-        let the = entry
-            .path()
-            .strip_prefix(&cwd)
-            .unwrap()
-            .display();
-        println!("{}{}", the, if is_dir { "/" } else { "" });
+    let directories = entries
+        .into_iter()
+        .filter(|entry| {
+            let is_dir = entry.file_type().unwrap().is_dir();
+            let path = entry.path();
+            let the = path
+                .strip_prefix(root_cwd)
+                .unwrap()
+                .display();
+            println!("{}{}", the, if is_dir { "/" } else { "" });
+            is_dir
+        })
+        .collect::<Vec<_>>();
+    for entry in directories {
+        walk(root_cwd, entry.path())
     }
-    Ok(())
 }
