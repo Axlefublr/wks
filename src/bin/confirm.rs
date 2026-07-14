@@ -7,13 +7,31 @@ use wks::prelude::*;
 #[derive(Parser)]
 struct Tuna {
     question: String,
-    alternatives: Vec<Alternative>,
+    alternatives: Vec<Argument>,
 }
 
 #[derive(Clone, Debug)]
 struct Alternative {
     text: String,
     shortcut: char,
+}
+
+#[derive(Clone, Debug)]
+enum Argument {
+    Actual(Alternative),
+    Separator,
+}
+
+impl FromStr for Argument {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            Ok(Argument::Separator)
+        } else {
+            Ok(Argument::Actual(s.parse()?))
+        }
+    }
 }
 
 impl FromStr for Alternative {
@@ -41,9 +59,12 @@ fn main() -> Result<()> {
     let alternatives = tuna
         .alternatives
         .into_iter()
-        .map(|Alternative { text, shortcut }| {
-            valid_shortcuts.insert(shortcut);
-            text
+        .map(|argument| match argument {
+            Argument::Actual(Alternative { text, shortcut }) => {
+                valid_shortcuts.insert(shortcut);
+                text
+            },
+            Argument::Separator => '\n'.into(),
         })
         .collect::<Vec<_>>()
         .join(" / ");
