@@ -13,7 +13,7 @@ struct Tuna {
 #[derive(Clone, Debug)]
 struct Alternative {
     text: String,
-    shortcut: char,
+    shortcut: Option<char>,
 }
 
 impl FromStr for Alternative {
@@ -21,14 +21,22 @@ impl FromStr for Alternative {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let text = s.to_owned();
-        let shortcut = s
+        let Some(shortcut) = s
             .chars()
             .skip_while(|&chr| chr != '[')
             .skip(1)
             .take(1)
             .next()
-            .context("no shortcut in alternative")?;
-        Ok(Alternative { text, shortcut })
+        else {
+            return Ok(Alternative {
+                text: Default::default(),
+                shortcut: None,
+            });
+        };
+        Ok(Alternative {
+            text,
+            shortcut: Some(shortcut),
+        })
     }
 }
 
@@ -38,15 +46,21 @@ fn main() -> Result<()> {
         eprintln!("{}", tuna.question);
     }
     let mut valid_shortcuts = HashSet::new();
-    let alternatives = tuna
-        .alternatives
-        .into_iter()
-        .map(|Alternative { text, shortcut }| {
+    let mut alternatives = String::new();
+    let mut previous_was_newline = true;
+    for Alternative { text, shortcut } in tuna.alternatives.into_iter() {
+        if let Some(shortcut) = shortcut {
             valid_shortcuts.insert(shortcut);
-            text
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
+            if !previous_was_newline {
+                alternatives.push(' ');
+            }
+            previous_was_newline = false;
+            alternatives.push_str(&text);
+        } else {
+            alternatives.push('\n');
+            previous_was_newline = true;
+        }
+    }
     eprint!("{}: ", alternatives);
     io::stdout()
         .lock()
