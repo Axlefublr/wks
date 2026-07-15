@@ -46,7 +46,7 @@ fn main() -> Result<()> {
             text
         })
         .collect::<Vec<_>>()
-        .join(" / ");
+        .join(" ");
     eprint!("{}: ", alternatives);
     io::stdout()
         .lock()
