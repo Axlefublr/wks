@@ -2,6 +2,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use console::Term;
 use wks::prelude::*;
 
 #[derive(Parser)]
@@ -10,7 +11,7 @@ struct Tuna {
     alternatives: Vec<Alternative>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct Alternative {
     text: String,
     shortcut: Option<char>,
@@ -21,18 +22,16 @@ impl FromStr for Alternative {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let text = s.to_owned();
-        let Some(shortcut) = s
+        if text.is_empty() {
+            return Ok(Alternative::default());
+        }
+        let shortcut = s
             .chars()
             .skip_while(|&chr| chr != '[')
             .skip(1)
             .take(1)
             .next()
-        else {
-            return Ok(Alternative {
-                text: Default::default(),
-                shortcut: None,
-            });
-        };
+            .context("no shortcut in alternative")?;
         Ok(Alternative {
             text,
             shortcut: Some(shortcut),
@@ -61,19 +60,20 @@ fn main() -> Result<()> {
             previous_was_newline = true;
         }
     }
-    eprint!("{}: ", alternatives);
-    io::stdout()
-        .lock()
-        .flush()
-        .unwrap();
-    let term = console::Term::stderr();
+    eprint!("{}", alternatives);
+    let term = Term::stderr();
+    let term_out = Term::stdout();
+    term.hide_cursor()?;
     loop {
         let taken_char = term.read_char().unwrap();
         if valid_shortcuts.contains(&taken_char) {
             println!("{}", taken_char);
-            eprintln!();
+            if term_out.is_term().not() {
+                println!();
+            }
             break;
         }
     }
+    term.show_cursor()?;
     Ok(())
 }
