@@ -29,7 +29,7 @@ fn main() -> Result<()> {
                 // happens if the file is not empty, but we can't read a single byte...
                 return Some(true); // in which case it's safer to assume that we should add an extra newline: removing a dangling newline is less annoying than untangling two joined lines
             };
-            Some(buf != [b'\n']) // if last char *is* a newline, we shouldn't fix
+            Some(buf != *b"\n") // if last char *is* a newline, we shouldn't fix
         }
         let should_fix_trailing_newline = should_fix_trailing_newline(&mut file).unwrap_or_default();
         if should_fix_trailing_newline {
