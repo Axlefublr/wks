@@ -18,7 +18,7 @@ fn main() -> Result<()> {
             sorting = false;
             collected.sort();
             println!("{}", collected.join("\n"));
-            collected.truncate(0);
+            collected.clear();
             println!("{}", line);
         } else if sorting {
             collected.push(line);
