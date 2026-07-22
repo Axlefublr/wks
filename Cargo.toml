@@ -11,6 +11,7 @@ repository = "https://github.com/Axlefublr/wks"
 
 [dependencies]
 anyhow = "1.0.101"
+chrono = "0.4.45"
 clap = { version = "4.5.57", features = ["derive", "wrap_help"] }
 console = "0.16.2"
 dirs = "6.0.0"
