@@ -4,6 +4,5 @@
 use wks::prelude::*;
 
 fn main() -> Result<()> {
-    println!("{}");
     Ok(())
 }
