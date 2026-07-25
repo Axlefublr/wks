@@ -52,20 +52,6 @@ fn resolve(arguments: Vec<String>, now: DateTime<Local>) -> Vec<Timestamp> {
                 let clean_arg = arg
                     .strip_suffix('!')
                     .unwrap_or(&arg);
-                let targetted_timestamp = second_pass
-                    .iter()
-                    .rev()
-                    .filter_map(|situation| {
-                        if let Timestamp::Resolvable(Resolution::Resolved(Container(_, timestamp))) =
-                            situation
-                        {
-                            Some(*timestamp)
-                        } else {
-                            None
-                        }
-                    })
-                    .next()
-                    .unwrap_or(now);
                 let is_minused;
                 let duration_string = if let Some(plussed) = clean_arg.strip_prefix('+') {
                     is_minused = false;
@@ -76,15 +62,35 @@ fn resolve(arguments: Vec<String>, now: DateTime<Local>) -> Vec<Timestamp> {
                 } else {
                     unreachable!("we checked if thing starts with +/- prior")
                 };
+                let mut targetted_timestamp = {
+                    second_pass
+                        .iter()
+                        .rev()
+                        .filter_map(|situation| {
+                            if let Timestamp::Resolvable(Resolution::Resolved(Container(_, timestamp))) =
+                                situation
+                            {
+                                Some(*timestamp)
+                            } else {
+                                None
+                            }
+                        })
+                };
                 let timedelta = parse_duration(duration_string);
                 if is_minused {
-                    let resulting_timestamp = targetted_timestamp - timedelta;
+                    let resulting_timestamp = targetted_timestamp
+                        .next_back()
+                        .unwrap_or(now)
+                        - timedelta;
                     second_pass.insert(
-                        second_pass.len().saturating_sub(1),
+                        0,
                         Timestamp::Resolvable(Resolution::Resolved(Container(arg, resulting_timestamp))),
                     );
                 } else {
-                    let resulting_timestamp = targetted_timestamp + timedelta;
+                    let resulting_timestamp = targetted_timestamp
+                        .next()
+                        .unwrap_or(now)
+                        + timedelta;
                     second_pass.push(Timestamp::Resolvable(Resolution::Resolved(Container(
                         arg,
                         resulting_timestamp,
@@ -262,7 +268,7 @@ mod tests {
 
     #[test]
     fn attraction() {
-        let input = vec!["12:00".into(), "-10m".into(), "-1h30m".into()];
+        let input = vec!["12:00".into(), "-10m".into(), "-1h30m".into(), "-1h".into()];
         let now = Local
             .with_ymd_and_hms(2025, 12, 31, 10, 00, 59)
             .single()
@@ -271,6 +277,13 @@ mod tests {
         assert_eq!(
             output[..],
             vec![
+                Timestamp::Resolvable(Resolution::Resolved(Container(
+                    "-1h".into(),
+                    Local
+                        .with_ymd_and_hms(2025, 12, 31, 9, 20, 00)
+                        .single()
+                        .unwrap()
+                ))),
                 Timestamp::Resolvable(Resolution::Resolved(Container(
                     "-1h30m".into(),
                     Local
