@@ -22,6 +22,7 @@ pub use std::collections::VecDeque;
 pub use std::env;
 pub use std::fmt;
 pub use std::fmt::Display;
+pub use std::fmt::Write as FmtWrite;
 pub use std::fs;
 pub use std::fs::File;
 pub use std::fs::OpenOptions;
