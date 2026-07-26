@@ -6,6 +6,7 @@ use wks::prelude::*;
 
 #[derive(Parser)]
 struct Octopus {
+    #[arg(allow_hyphen_values = true)]
     timestamps: Vec<String>,
 }
 
@@ -13,6 +14,18 @@ struct Octopus {
 enum Timestamp {
     Resolvable(Resolution),
     Unresolvable(String),
+}
+
+impl Display for Timestamp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unresolvable(the) => write!(f, "{0}\t{0}", the),
+            Self::Resolvable(Resolution::Resolved(Container(passed, resolved))) => {
+                write!(f, "{passed}\t{resolved}", resolved = resolved)
+            },
+            Self::Resolvable(Resolution::Later(_)) => unreachable!("should've been handled by this point"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -27,7 +40,11 @@ struct Container(String, DateTime<Local>);
 fn main() -> Result<()> {
     let Octopus { timestamps } = Octopus::parse();
     let now = Local::now();
-    resolve(timestamps, now);
+    let mut buf = String::new();
+    for the in resolve(timestamps, now) {
+        writeln!(&mut buf, "{}", the).unwrap();
+    }
+    print!("{}", buf);
     Ok(())
 }
 
@@ -172,6 +189,8 @@ fn resolve_colon(colon_separated: &str, now: DateTime<Local>) -> DateTime<Local>
         .with_minute(minute)
         .unwrap()
         .with_second(0)
+        .unwrap()
+        .with_nanosecond(0)
         .unwrap();
     if target_date < now {
         target_date + Days::new(1)
