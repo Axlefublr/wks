@@ -14,6 +14,7 @@ pub use chrono::TimeZone;
 pub use chrono::Utc;
 pub use clap::Parser;
 pub use clap::ValueEnum;
+pub use duct::cmd;
 pub use std::assert_matches;
 pub use std::borrow::Cow;
 pub use std::collections::HashMap;
