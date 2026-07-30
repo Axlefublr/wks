@@ -5,7 +5,7 @@ use url::Url;
 
 use wks::prelude::*;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(serde::Serialize, Debug, Default, PartialEq)]
 struct RepoInfo {
     this: String,
     repo: String,
@@ -41,10 +41,10 @@ impl RepoInfo {
     }
 }
 
-impl TryFrom<&str> for RepoInfo {
-    type Error = anyhow::Error;
+impl FromStr for RepoInfo {
+    type Err = anyhow::Error;
 
-    fn try_from(provided_url: &str) -> Result<Self, Self::Error> {
+    fn from_str(provided_url: &str) -> Result<Self, Self::Err> {
         let Ok(mut url) = Url::parse(provided_url) else {
             if let Some(repo) = provided_url.split('/').next_back() {
                 return Ok(Self::basic(provided_url, repo));
@@ -121,6 +121,10 @@ fn main() -> Result<()> {
     let provided_url = env::args()
         .nth(1)
         .ok_or_else(|| anyhow!("url not provided"))?;
+    let repo_info = serde_json::to_string_pretty(&provided_url.parse::<RepoInfo>()?)?;
+    if repo_info.is_empty().not() {
+        println!("{repo_info}");
+    }
     Ok(())
 }
 
@@ -131,84 +135,84 @@ mod tests {
     #[test]
     fn shorthand() {
         let ins = "repo";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::basic(ins, "repo"));
     }
 
     #[test]
     fn shorthand_owner() {
         let ins = "owner/repo";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::basic(ins, "repo"));
     }
 
     #[test]
     fn normal_nothing() {
         let ins = "https://github.com/owner/repo";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::basic(ins, "repo"));
     }
 
     #[test]
     fn normal_nothing_trail() {
         let ins = "https://github.com/owner/repo/";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::basic(ins, "repo"));
     }
 
     #[test]
     fn branch() {
         let ins = "https://github.com/owner/repo/tree/main";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "main"));
     }
 
     #[test]
     fn branch_dir() {
         let ins = "https://github.com/owner/repo/tree/main/src/lib";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "main/src/lib"));
     }
 
     #[test]
     fn branch_file() {
         let ins = "https://github.com/owner/repo/blob/main/src/main.rs";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "main/src/main.rs"));
     }
 
     #[test]
     fn branch_file_line() {
         let ins = "https://github.com/owner/repo/blob/main/src/main.rs#L15";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::line(ins, "repo", "main/src/main.rs", 15));
     }
 
     #[test]
     fn branch_file_param() {
         let ins = "https://github.com/owner/repo/blob/main/src/main.rs?plain=1";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "main/src/main.rs"));
     }
 
     #[test]
     fn branch_file_param_line() {
         let ins = "https://github.com/owner/repo/blob/main/src/main.rs?plain=1#L10";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::line(ins, "repo", "main/src/main.rs", 10));
     }
 
     #[test]
     fn blame_file() {
         let ins = "https://github.com/owner/repo/blame/main/src/main.rs";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "main/src/main.rs"));
     }
 
     #[test]
     fn commit() {
         let ins = "https://github.com/owner/repo/tree/0123456789abcdef0123456789abcdef01234567";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::brath(ins, "repo", "0123456789abcdef0123456789abcdef01234567")
@@ -218,7 +222,7 @@ mod tests {
     #[test]
     fn commit_file() {
         let ins = "https://github.com/owner/repo/blob/0123456789abcdef0123456789abcdef01234567/src/main.rs";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::brath(
@@ -233,7 +237,7 @@ mod tests {
     fn commit_file_line() {
         let ins =
             "https://github.com/owner/repo/blob/0123456789abcdef0123456789abcdef01234567/src/main.rs#L50";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::line(
@@ -248,7 +252,7 @@ mod tests {
     #[test]
     fn commit_file_dir() {
         let ins = "https://github.com/owner/repo/tree/0123456789abcdef0123456789abcdef01234567/src";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::brath(ins, "repo", "0123456789abcdef0123456789abcdef01234567/src")
@@ -258,7 +262,7 @@ mod tests {
     #[test]
     fn commit_view() {
         let ins = "https://github.com/owner/repo/commit/0123456789abcdef0123456789abcdef01234567";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::brath(ins, "repo", "0123456789abcdef0123456789abcdef01234567")
@@ -268,21 +272,21 @@ mod tests {
     #[test]
     fn tag() {
         let ins = "https://github.com/owner/repo/tree/v1.0.0";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "v1.0.0"));
     }
 
     #[test]
     fn tag_file() {
         let ins = "https://github.com/owner/repo/blob/v1.2.3/src/main.rs";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(out, RepoInfo::brath(ins, "repo", "v1.2.3/src/main.rs"));
     }
 
     #[test]
     fn raw_file() {
         let ins = "https://raw.githubusercontent.com/owner/repo/main/README.md";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::brath("https://github.com/owner/repo", "repo", "main/README.md")
@@ -292,7 +296,7 @@ mod tests {
     #[test]
     fn raw_permanent_file() {
         let ins = "https://raw.githubusercontent.com/owner/repo/0123456789abcdef0123456789abcdef01234567/src/main.rs";
-        let out = RepoInfo::try_from(ins).unwrap();
+        let out = ins.parse::<RepoInfo>().unwrap();
         assert_eq!(
             out,
             RepoInfo::brath(
