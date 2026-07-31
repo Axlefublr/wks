@@ -4,6 +4,22 @@
 use wks::prelude::*;
 
 fn main() -> Result<()> {
+    let brath = env::args()
+        .nth(1)
+        .expect("provide brath");
+    let branchlikes = refs_into_branchlikes(&collect_refs()?);
+    let potentials = brath_into_potentials(&brath);
+    let resolved = resolve_ref(&branchlikes, &potentials).unwrap_or_else(|| {
+        // if no possible branch matches any of the existing branches, it's for sure a commit. hopefully
+        // the last element in potentials is always the 1-width branch, no need to resplit
+        let likely_commit = potentials.last().unwrap();
+        if verify_commit(likely_commit) {
+            likely_commit.to_owned()
+        } else {
+            panic!("this ain't even a commit, what is this shit");
+        }
+    });
+    println!("{}", resolved);
     Ok(())
 }
 
@@ -34,6 +50,47 @@ fn refs_into_branchlikes(refile: &str) -> Vec<String> {
         .map(ToOwned::to_owned)
         .inspect(|the| eprintln!("`{}`", the))
         .collect()
+}
+
+fn brath_into_potentials(brath: &str) -> Vec<String> {
+    if brath.contains('/').not() {
+        // we need at least one slash to include a path, as the branchlike will always be included. this means that we necessarily only have the branch specified, and it's `brath`
+        return vec![brath.to_owned()];
+    }
+    let mut potential_men = Vec::new();
+    let pieces = brath
+        .split('/')
+        .collect::<Vec<_>>();
+    for i in (0..(pieces.len())).rev() {
+        let the = pieces[0..i].join("/");
+        if the.is_empty().not() {
+            potential_men.push(the);
+        }
+    }
+    potential_men
+}
+
+fn resolve_ref(branchlikes: &Vec<String>, potentials: &Vec<String>) -> Option<String> {
+    for potential in potentials {
+        for branchlike in branchlikes {
+            if potential == branchlike {
+                return Some(potential.to_owned());
+            }
+        }
+    }
+    None
+}
+
+fn verify_commit(likely_commit: &str) -> bool {
+    cmd!(
+        "git",
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        &format!("{likely_commit}^{{commit}}")
+    )
+    .run()
+    .is_ok()
 }
 
 #[cfg(test)]
@@ -112,9 +169,83 @@ mod tests {
     #[test]
     fn one_of_each() {
         let ins = r#"
-        todo
+            refs/heads/10576/anchors/pantos9000
+            refs/heads/dev
+            refs/remotes/origin/Axlefublr/buffer_nth
+            refs/remotes/origin/HEAD
+            refs/remotes/upstream/25.07.x
+            refs/remotes/upstream/HEAD
+            refs/stash
+            refs/tags/22.03
         "#;
         let out = refs_into_branchlikes(ins);
-        assert_eq!(out, Vec::<String>::new());
+        assert_eq!(
+            out,
+            vec![
+                String::from("10576/anchors/pantos9000"),
+                String::from("dev"),
+                String::from("Axlefublr/buffer_nth"),
+                String::from("25.07.x"),
+                String::from("22.03"),
+            ]
+        );
+    }
+
+    #[test]
+    fn potentialing() {
+        let ins = "guarantees/orgasm/albany/permit/routine.rs";
+        let out = brath_into_potentials(ins);
+        assert_eq!(
+            out,
+            vec![
+                String::from("guarantees/orgasm/albany/permit"),
+                String::from("guarantees/orgasm/albany"),
+                String::from("guarantees/orgasm"),
+                String::from("guarantees"),
+            ]
+        );
+    }
+
+    #[test]
+    fn potentialing_uselessly() {
+        let ins = "guarantees";
+        let out = brath_into_potentials(ins);
+        assert_eq!(out, vec![String::from("guarantees"),]);
+    }
+
+    #[test]
+    fn resolvation() {
+        let potentials = vec![
+            String::from("guarantees/orgasm/albany/permit"),
+            String::from("guarantees/orgasm/albany"),
+            String::from("guarantees/orgasm"),
+            String::from("guarantees"),
+        ];
+        let branchlikes = vec![
+            String::from("guarantees"),
+            String::from("guarantees/orgasm"),
+            String::from("guarantees/orgasm/albany"),
+            String::from("guarantees/orgasm/albany/permit"),
+        ];
+        let out = resolve_ref(&branchlikes, &potentials);
+        assert_eq!(out, Some("guarantees/orgasm/albany/permit".to_owned()));
+    }
+
+    #[test]
+    fn resolvation_rev() {
+        let potentials = vec![
+            String::from("guarantees/orgasm/albany/permit"),
+            String::from("guarantees/orgasm/albany"),
+            String::from("guarantees/orgasm"),
+            String::from("guarantees"),
+        ];
+        let branchlikes = vec![
+            String::from("guarantees/orgasm/albany/permit"),
+            String::from("guarantees/orgasm/albany"),
+            String::from("guarantees/orgasm"),
+            String::from("guarantees"),
+        ];
+        let out = resolve_ref(&branchlikes, &potentials);
+        assert_eq!(out, Some("guarantees/orgasm/albany/permit".to_owned()));
     }
 }
