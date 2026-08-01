@@ -5,6 +5,17 @@ use url::Url;
 
 use wks::prelude::*;
 
+fn main() -> Result<()> {
+    let provided_url = env::args()
+        .nth(1)
+        .ok_or_else(|| anyhow!("url not provided"))?;
+    let repo_info = serde_json::to_string_pretty(&provided_url.parse::<RepoInfo>()?)?;
+    if repo_info.is_empty().not() {
+        println!("{repo_info}");
+    }
+    Ok(())
+}
+
 #[derive(serde::Serialize, Debug, Default, PartialEq)]
 struct RepoInfo {
     this: String,
@@ -115,17 +126,6 @@ impl FromStr for RepoInfo {
             line,
         })
     }
-}
-
-fn main() -> Result<()> {
-    let provided_url = env::args()
-        .nth(1)
-        .ok_or_else(|| anyhow!("url not provided"))?;
-    let repo_info = serde_json::to_string_pretty(&provided_url.parse::<RepoInfo>()?)?;
-    if repo_info.is_empty().not() {
-        println!("{repo_info}");
-    }
-    Ok(())
 }
 
 #[cfg(test)]
