@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use itertools::Itertools;
 use wks::prelude::*;
 
 fn main() -> Result<()> {
@@ -9,22 +10,45 @@ fn main() -> Result<()> {
         .expect("provide brath");
     let branchlikes = refs_into_branchlikes(&collect_refs()?);
     let potentials = brath_into_potentials(&brath);
-    let resolved = resolve_ref(&branchlikes, &potentials).unwrap_or_else(|| {
+    let resolved = if let Some(resolved) = resolve_ref(&branchlikes, &potentials) {
+        resolved
+    } else {
         // if no possible branch matches any of the existing branches, it's for sure a commit. hopefully
         // the last element in potentials is always the 1-width branch, no need to resplit
         let likely_commit = potentials.last().unwrap();
         if verify_commit(likely_commit) {
             likely_commit.to_owned()
         } else {
-            panic!("this ain't even a commit, what is this shit");
+            bail!("this ain't even a commit, what is this shit");
         }
-    });
-    println!("{}", resolved);
+    };
+    let result = serde_json::to_string_pretty(&Resolution {
+        path: brath
+            .strip_prefix(&format!("{resolved}/"))
+            .filter(|the| the.is_empty().not())
+            .map(|the| the.to_owned()),
+        branch: resolved,
+    })?;
+    println!("{result}");
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+struct Resolution {
+    branch: String,
+    path: Option<String>,
+}
+
 fn collect_refs() -> Result<String> {
-    Ok(cmd!("git", "for-each-ref").read()?)
+    Ok(cmd!("git", "for-each-ref")
+        .read()?
+        .lines()
+        .map(|line| {
+            line.split('\t')
+                .next_back()
+                .unwrap()
+        })
+        .join("\n"))
 }
 
 fn refs_into_branchlikes(refile: &str) -> Vec<String> {
@@ -48,7 +72,6 @@ fn refs_into_branchlikes(refile: &str) -> Vec<String> {
                 .trim_start_matches("refs/heads/")
         })
         .map(ToOwned::to_owned)
-        .inspect(|the| eprintln!("`{}`", the))
         .collect()
 }
 
@@ -89,8 +112,12 @@ fn verify_commit(likely_commit: &str) -> bool {
         "--quiet",
         &format!("{likely_commit}^{{commit}}")
     )
+    .unchecked()
+    .stdout_null()
     .run()
-    .is_ok()
+    .unwrap()
+    .status
+    .success()
 }
 
 #[cfg(test)]
