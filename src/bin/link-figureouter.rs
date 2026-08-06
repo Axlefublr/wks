@@ -16,9 +16,6 @@ fn main() -> Result<()> {
         new_name,
         new_url,
     } = Octopus::parse();
-    // let path = PathBuf::from("/home/axlefublr/.local/share/magazine/l");
-    // let new_name = String::from("discord server mine");
-    // let new_url = String::from("https://discord.gg/bgVSg362dK");
     let text = fs::read_to_string(&path)?;
     let mut appeared = false;
     let mut buf = String::new();
